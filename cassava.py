@@ -110,4 +110,4 @@ def detect_disease(image_path, model):
 model = initialize_model()
 if model:
     # Example usage
-    detect_disease("/image/IMG_7780.JPG", model)
+    detect_disease("image/IMG_7780.JPG", model)
