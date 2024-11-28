@@ -19,7 +19,7 @@ def initialize_model():
     rf = Roboflow(api_key=api_key)
     try:
         project = rf.workspace().project("newcassava")
-        model = project.version("2").model
+        model = project.version("3").model
         print("Model loaded successfully.")
         return model
     except Exception as e:
@@ -78,7 +78,7 @@ def detect_disease(image_path, model):
             num_predictions += 1
 
             # Put the label on the image
-            cv2.putText(img, label, (x0, y0 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 4)
+            cv2.putText(img, label, (x0, y0 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
 
         # Calculate average confidence
         avg_confidence = total_confidence / num_predictions if num_predictions > 0 else 0.0
@@ -86,7 +86,7 @@ def detect_disease(image_path, model):
         cv2.putText(img, accuracy_label, (50, img.shape[0] - 20), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 4)
 
         # Resize image to max width 800 pixels if necessary
-        max_width = 4000
+        max_width = 800
         height, width = img.shape[:2]
         if width > max_width:
             scaling_factor = max_width / float(width)
@@ -110,4 +110,4 @@ def detect_disease(image_path, model):
 model = initialize_model()
 if model:
     # Example usage
-    detect_disease("image/IMG_7780.JPG", model)
+    detect_disease("image/IMG_7840.JPG", model)
