@@ -77,7 +77,7 @@ keras_model = Sequential([
 keras_model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
 
 # Train the model
-keras_model.fit(X_train, y_train, epochs=50, batch_size=4)
+keras_model.fit(X_train, y_train, epochs=200, batch_size=4)
 
 # Plot the confusion matrix
 plot_confusion_matrix_multiclass(keras_model, X_test, y_test, class_labels)

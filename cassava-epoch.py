@@ -6,7 +6,9 @@ import numpy as np
 from dotenv import load_dotenv
 from roboflow import Roboflow
 import matplotlib.pyplot as plt
-from utils import plot_confusion_matrix
+from tensorflow.keras import regularizers
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras.models import load_model
 
 load_dotenv()
 
@@ -107,34 +109,53 @@ def plot_model_history(model_history):
     fig.savefig('public/plot-cassava.png')
     plt.show()
 
-def plot_model_history(model_history):
+def evaluate_model(keras_model, X_test, y_test):
     """
-    Plot accuracy and loss curves using model training history.
+    Evaluates the model performance on the test dataset.
 
     Args:
-        model_history: History object from model training (e.g., TensorFlow/Keras).
+        keras_model: The trained Keras model.
+        X_test: The test input data.
+        y_test: The test labels.
+
+    Returns:
+        None
     """
-    fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+    test_loss, test_accuracy = keras_model.evaluate(X_test, y_test)
+    print(f"Test Loss: {test_loss:.4f}")
+    print(f"Test Accuracy: {test_accuracy * 100:.2f}%")
 
-    # Plot accuracy
-    axs[0].plot(range(1, len(model_history.history['accuracy']) + 1), model_history.history['accuracy'])
-    axs[0].plot(range(1, len(model_history.history['val_accuracy']) + 1), model_history.history['val_accuracy'])
-    axs[0].set_title('Model Accuracy')
-    axs[0].set_ylabel('Accuracy')
-    axs[0].set_xlabel('Epoch')
-    axs[0].legend(['Train', 'Validation'], loc='best')
+def save_model(keras_model, model_name="cassava_model.keras"):
+    """
+    Saves the trained model to disk.
 
-    # Plot loss
-    axs[1].plot(range(1, len(model_history.history['loss']) + 1), model_history.history['loss'])
-    axs[1].plot(range(1, len(model_history.history['val_loss']) + 1), model_history.history['val_loss'])
-    axs[1].set_title('Model Loss')
-    axs[1].set_ylabel('Loss')
-    axs[1].set_xlabel('Epoch')
-    axs[1].legend(['Train', 'Validation'], loc='best')
+    Args:
+        keras_model: The trained Keras model.
+        model_name: The name of the file where the model will be saved.
 
-    plt.tight_layout()
-    fig.savefig('public/plot-cassava.png')
-    plt.show()
+    Returns:
+        None
+    """
+    keras_model.save(model_name)
+    print(f"Model saved as {model_name}")
+
+def load_trained_model(model_path="cassava_model.keras"):
+    """
+    Loads a previously trained model from disk.
+
+    Args:
+        model_path: Path to the saved model file.
+
+    Returns:
+        keras.Model: The loaded model.
+    """
+    if os.path.exists(model_path):
+        model = load_model(model_path)
+        print(f"Model loaded from {model_path}")
+        return model
+    else:
+        print(f"Model file '{model_path}' not found!")
+        return None
 
 if __name__ == "__main__":
     model = initialize_model()
@@ -143,24 +164,44 @@ if __name__ == "__main__":
         # Assuming your model is compatible with TensorFlow/Keras fit function
         import tensorflow as tf
         from tensorflow.keras.models import Sequential
-        from tensorflow.keras.layers import Dense
+        from tensorflow.keras.layers import Dense, Dropout
 
-        # Mock dataset
+        # Mock dataset (for actual usage, replace with your real data)
         X_train = np.random.rand(100, 10)
         y_train = np.random.randint(2, size=(100, 1))
         X_val = np.random.rand(20, 10)
         y_val = np.random.randint(2, size=(20, 1))
+        X_test = np.random.rand(20, 10)  # You can replace this with your actual test set
+        y_test = np.random.randint(2, size=(20, 1))
 
         # Example model
         keras_model = Sequential([
-            Dense(64, activation='relu', input_shape=(10,)),
-            Dense(32, activation='relu'),
+            Dense(64, activation='relu', input_shape=(10,), kernel_regularizer=regularizers.l2(0.01)),
+            Dropout(0.5),
+            Dense(32, activation='relu', kernel_regularizer=regularizers.l2(0.01)),
+            Dropout(0.5),
             Dense(1, activation='sigmoid')
         ])
+
         keras_model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
+        # Early stopping and learning rate scheduling callbacks
+        early_stopping = EarlyStopping(monitor='val_accuracy', patience=10, restore_best_weights=True)
+        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=0.00001)
+
         # Train the model
-        history = keras_model.fit(X_train, y_train, validation_data=(X_val, y_val), epochs=200, batch_size=8)
+        history = keras_model.fit(X_train, y_train, validation_data=(X_val, y_val),
+                                  epochs=10, batch_size=8,
+                                  callbacks=[early_stopping, reduce_lr])
 
         # Plot the history
         plot_model_history(history)
+
+        # Evaluate the model on the test dataset
+        evaluate_model(keras_model, X_test, y_test)
+
+        # Save the trained model to disk
+        save_model(keras_model)
+
+        # Optionally load a saved model
+        loaded_model = load_trained_model()  # You can pass the model path if necessary
