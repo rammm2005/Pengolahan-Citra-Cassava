@@ -78,12 +78,12 @@ def detect_disease(image_path, model):
             num_predictions += 1
 
             # Put the label on the image
-            cv2.putText(img, label, (x0, y0 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+            cv2.putText(img, label, (x0, y0 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
         # Calculate average confidence
         avg_confidence = total_confidence / num_predictions if num_predictions > 0 else 0.0
         accuracy_label = f"Prediction Accuracy: {avg_confidence * 100:.2f}%, (Disease Name: {disease_name})"
-        cv2.putText(img, accuracy_label, (50, img.shape[0] - 20), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 4)
+        cv2.putText(img, accuracy_label, (50, img.shape[0] - 20), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 4)
 
         # Resize image to max width 800 pixels if necessary
         max_width = 800
@@ -110,4 +110,4 @@ def detect_disease(image_path, model):
 model = initialize_model()
 if model:
     # Example usage
-    detect_disease("image/IMG_7840.JPG", model)
+    detect_disease("image/IMG_7811.JPG", model)
