@@ -55,17 +55,17 @@ def draw_bounding_boxes(img, predictions):
         cv2.rectangle(img, (x0, y0), (x1, y1), (0, 0, 0), 8)
 
         label = f"{disease_name} ({confidence:.2f})"
-        cv2.putText(img, label, (x0, y0 - 20), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 4, cv2.LINE_AA)
+        cv2.putText(img, label, (x0, y0 - 20), cv2.FONT_HERSHEY_DUPLEX, 3.2, (255, 255, 255), 6, cv2.LINE_AA)
 
         total_confidence += confidence
 
     avg_confidence = (total_confidence / num_predictions) if num_predictions else 0
     accuracy_label = f"Accuracy: {avg_confidence * 100:.2f}%"
-    cv2.putText(img, accuracy_label, (10, img.shape[0] - 30), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 4, cv2.LINE_AA)
+    cv2.putText(img, accuracy_label, (10, img.shape[0] - 30), cv2.FONT_HERSHEY_DUPLEX, 3, (255, 255, 255), 6, cv2.LINE_AA)
 
     return img
 
-def resize_image(img, max_width=800):
+def resize_image(img, max_width=900):
     """
     Resizes the image to a maximum width while maintaining the aspect ratio.
 

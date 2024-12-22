@@ -115,7 +115,7 @@ if __name__ == "__main__":
 
     # Train the model
     print("Training the model...")
-    keras_model.fit(X_train, y_train_categorical, epochs=10, batch_size=32, validation_split=0.2)
+    keras_model.fit(X_train, y_train_categorical, epochs=5, batch_size=32, validation_split=0.2)
 
     # Plot confusion matrix
     print("Generating confusion matrix...")
