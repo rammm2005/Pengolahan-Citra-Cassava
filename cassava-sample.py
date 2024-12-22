@@ -126,4 +126,4 @@ def detect_disease(image_path, model):
 if __name__ == "__main__":
     model = initialize_model()
     if model:
-        detect_disease("image/IMG_7791.JPG", model)
+        detect_disease("valid/10606813_jpg.rf.9099a6130c06676afc76053fde95f5e6.jpg", model)
