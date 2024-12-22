@@ -1,207 +1,132 @@
 import os
-import cv2
-import json
-import time
+import pandas as pd
 import numpy as np
 from dotenv import load_dotenv
-from roboflow import Roboflow
 import matplotlib.pyplot as plt
-from tensorflow.keras import regularizers
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-from tensorflow.keras.models import load_model
+from sklearn.model_selection import train_test_split
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Input
+from tensorflow.keras.preprocessing.image import load_img, img_to_array
+import random
 
+# Set random seeds for reproducibility
+np.random.seed(42)
+random.seed(42)
+tf.random.set_seed(42)
+
+# Load environment variables
 load_dotenv()
 
-def initialize_model():
+def load_dataset_from_csv(csv_path, image_dir, target_size=(128, 128)):
     """
-    Initializes the Roboflow model using an API key from environment variables.
-
-    Returns:
-        model: The loaded Roboflow model.
-    """
-    api_key = os.getenv("ROBOFLOW_API_KEY")
-    if not api_key:
-        raise ValueError("API key for Roboflow is not set. Please set ROBOFLOW_API_KEY as an environment variable.")
-
-    try:
-        rf = Roboflow(api_key=api_key)
-        project = rf.workspace().project("newcassava")
-        model = project.version("3").model
-        print("Model loaded successfully.")
-        return model
-    except Exception as e:
-        print(f"Error loading model: {e}")
-        return None
-
-def draw_bounding_boxes(img, predictions):
-    """
-    Draws bounding boxes and labels on the image for each prediction.
+    Load dataset from a CSV file.
 
     Args:
-        img (ndarray): The image to draw on.
-        predictions (list): List of prediction dictionaries.
+        csv_path (str): Path to the CSV file containing image paths and labels.
+        image_dir (str): Directory where images are stored.
+        target_size (tuple): Target size for resizing images (width, height).
 
     Returns:
-        ndarray: The image with bounding boxes and labels.
+        X (ndarray): Array of image data.
+        y (ndarray): Array of corresponding labels.
     """
-    total_confidence = 0
-    num_predictions = len(predictions)
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"CSV file not found: {csv_path}")
+    if not os.path.exists(image_dir):
+        raise FileNotFoundError(f"Image directory not found: {image_dir}")
+    
+    # Read CSV file
+    data = pd.read_csv(csv_path)
+    if 'filename' not in data.columns or 'class' not in data.columns:
+        raise ValueError("CSV file must contain 'filename' and 'class' columns.")
+    
+    X, y = [], []
 
-    for prediction in predictions:
-        disease_name = prediction.get("class", "Unknown")
-        confidence = prediction.get("confidence", 0)
-        x0 = int(prediction["x"] - prediction["width"] / 2)
-        y0 = int(prediction["y"] - prediction["height"] / 2)
-        x1 = int(prediction["x"] + prediction["width"] / 2)
-        y1 = int(prediction["y"] + prediction["height"] / 2)
+    for _, row in data.iterrows():
+        img_path = os.path.join(image_dir, row['filename'])
+        label = row['class']
+        try:
+            img = load_img(img_path, target_size=target_size)
+            img_array = img_to_array(img) / 255.0  # Normalize pixel values
+            X.append(img_array)
+            y.append(label)
+        except Exception as e:
+            print(f"Skipping image {img_path}: {e}")
 
-        cv2.rectangle(img, (x0, y0), (x1, y1), (0, 0, 0), 8)
+    return np.array(X), np.array(y)
 
-        label = f"{disease_name} ({confidence:.2f})"
-        cv2.putText(img, label, (x0, y0 - 20), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 4, cv2.LINE_AA)
-
-        total_confidence += confidence
-
-    avg_confidence = (total_confidence / num_predictions) if num_predictions else 0
-    accuracy_label = f"Accuracy: {avg_confidence * 100:.2f}%"
-    cv2.putText(img, accuracy_label, (10, img.shape[0] - 30), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 4, cv2.LINE_AA)
-
-    return img
-
-def resize_image(img, max_width=800):
+def plot_metrics(history):
     """
-    Resizes the image to a maximum width while maintaining the aspect ratio.
+    Plot training and validation accuracy and loss.
 
     Args:
-        img (ndarray): The original image.
-        max_width (int): The maximum width for the resized image.
-
-    Returns:
-        ndarray: The resized image.
+        history: History object from training.
     """
-    height, width = img.shape[:2]
-    if width > max_width:
-        scaling_factor = max_width / float(width)
-        new_dim = (max_width, int(height * scaling_factor))
-        return cv2.resize(img, new_dim)
-    return img
+    # Plot accuracy
+    plt.figure(figsize=(12, 5))
 
-def plot_model_history(model_history):
-    """Plot Accuracy and Loss curves given the model history."""
-    fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+    plt.subplot(1, 2, 1)
+    plt.plot(history.history['accuracy'], label='Training Accuracy')
+    plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+    plt.title('Model Accuracy')
+    plt.xlabel('Epochs')
+    plt.ylabel('Accuracy')
+    plt.legend(loc='lower right')
 
-    # Accuracy plot
-    axs[0].plot(range(1, len(model_history.history['accuracy']) + 1), model_history.history['accuracy'])
-    axs[0].plot(range(1, len(model_history.history['val_accuracy']) + 1), model_history.history['val_accuracy'])
-    axs[0].set_title('Model Accuracy')
-    axs[0].set_ylabel('Accuracy')
-    axs[0].set_xlabel('Epoch')
-    axs[0].legend(['train', 'val'], loc='best')
+    # Plot loss
+    plt.subplot(1, 2, 2)
+    plt.plot(history.history['loss'], label='Training Loss')
+    plt.plot(history.history['val_loss'], label='Validation Loss')
+    plt.title('Model Loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend(loc='upper right')
 
-    # Loss plot
-    axs[1].plot(range(1, len(model_history.history['loss']) + 1), model_history.history['loss'])
-    axs[1].plot(range(1, len(model_history.history['val_loss']) + 1), model_history.history['val_loss'])
-    axs[1].set_title('Model Loss')
-    axs[1].set_ylabel('Loss')
-    axs[1].set_xlabel('Epoch')
-    axs[1].legend(['train', 'val'], loc='best')
-
-    fig.savefig('public/plot-cassava.png')
+    plt.tight_layout()
     plt.show()
 
-def evaluate_model(keras_model, X_test, y_test):
-    """
-    Evaluates the model performance on the test dataset.
-
-    Args:
-        keras_model: The trained Keras model.
-        X_test: The test input data.
-        y_test: The test labels.
-
-    Returns:
-        None
-    """
-    test_loss, test_accuracy = keras_model.evaluate(X_test, y_test)
-    print(f"Test Loss: {test_loss:.4f}")
-    print(f"Test Accuracy: {test_accuracy * 100:.2f}%")
-
-def save_model(keras_model, model_name="cassava_model.keras"):
-    """
-    Saves the trained model to disk.
-
-    Args:
-        keras_model: The trained Keras model.
-        model_name: The name of the file where the model will be saved.
-
-    Returns:
-        None
-    """
-    keras_model.save(model_name)
-    print(f"Model saved as {model_name}")
-
-def load_trained_model(model_path="cassava_model.keras"):
-    """
-    Loads a previously trained model from disk.
-
-    Args:
-        model_path: Path to the saved model file.
-
-    Returns:
-        keras.Model: The loaded model.
-    """
-    if os.path.exists(model_path):
-        model = load_model(model_path)
-        print(f"Model loaded from {model_path}")
-        return model
-    else:
-        print(f"Model file '{model_path}' not found!")
-        return None
-
 if __name__ == "__main__":
-    model = initialize_model()
-    if model:
-        # Example training process
-        # Assuming your model is compatible with TensorFlow/Keras fit function
-        import tensorflow as tf
-        from tensorflow.keras.models import Sequential
-        from tensorflow.keras.layers import Dense, Dropout
+    # Define paths
+    script_dir = os.path.dirname(os.path.abspath(__file__))  # Current script directory
+    csv_path = os.path.join(script_dir, "valid/_annotations.csv")  # Path to the CSV file
+    image_dir = os.path.join(script_dir, "valid")  # Path to the Dataset directory
 
-        # Mock dataset (for actual usage, replace with your real data)
-        X_train = np.random.rand(100, 10)
-        y_train = np.random.randint(2, size=(100, 1))
-        X_val = np.random.rand(20, 10)
-        y_val = np.random.randint(2, size=(20, 1))
-        X_test = np.random.rand(20, 10)  # You can replace this with your actual test set
-        y_test = np.random.randint(2, size=(20, 1))
+    # Load dataset
+    print("Loading dataset...")
+    X, y = load_dataset_from_csv(csv_path, image_dir)
+    print(f"Dataset loaded: {len(X)} images, {len(y)} labels.")
 
-        # Example model
-        keras_model = Sequential([
-            Dense(64, activation='relu', input_shape=(10,), kernel_regularizer=regularizers.l2(0.01)),
-            Dropout(0.5),
-            Dense(32, activation='relu', kernel_regularizer=regularizers.l2(0.01)),
-            Dropout(0.5),
-            Dense(1, activation='sigmoid')
-        ])
+    # Encode labels to integers
+    class_labels = sorted(list(set(y)))  # Get unique classes
+    label_to_index = {label: idx for idx, label in enumerate(class_labels)}
+    y_encoded = np.array([label_to_index[label] for label in y])
 
-        keras_model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    # Split data into training and testing sets
+    X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2, random_state=42)
 
-        # Early stopping and learning rate scheduling callbacks
-        early_stopping = EarlyStopping(monitor='val_accuracy', patience=10, restore_best_weights=True)
-        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=0.00001)
+    # Convert labels to one-hot encoding
+    num_classes = len(class_labels)
+    y_train_categorical = tf.keras.utils.to_categorical(y_train, num_classes)
+    y_test_categorical = tf.keras.utils.to_categorical(y_test, num_classes)
 
-        # Train the model
-        history = keras_model.fit(X_train, y_train, validation_data=(X_val, y_val),
-                                  epochs=10, batch_size=8,
-                                  callbacks=[early_stopping, reduce_lr])
+    # Define model
+    keras_model = Sequential([
+        tf.keras.layers.Input(shape=X_train.shape[1:]),
+        tf.keras.layers.Flatten(),
+        Dense(64, activation='relu'),
+        Dense(32, activation='relu'),
+        Dense(num_classes, activation='softmax')
+    ])
 
-        # Plot the history
-        plot_model_history(history)
+    keras_model.compile(optimizer='adam', 
+                        loss='categorical_crossentropy', 
+                        metrics=['accuracy'])
 
-        # Evaluate the model on the test dataset
-        evaluate_model(keras_model, X_test, y_test)
+    # Train the model
+    print("Training the model...")
+    history = keras_model.fit(X_train, y_train_categorical, epochs=10, batch_size=32, validation_split=0.1)
 
-        # Save the trained model to disk
-        save_model(keras_model)
-
-        # Optionally load a saved model
-        loaded_model = load_trained_model()  # You can pass the model path if necessary
+    # Plot accuracy and loss
+    print("Generating accuracy and loss plots...")
+    plot_metrics(history)
