@@ -12,21 +12,22 @@ import tensorflow as tf
 import random
 
 # Set random seeds for reproducibility
-np.random.seed(42)
-random.seed(42)
-tf.random.set_seed(42)
+np.random.seed(35)
+random.seed(35)
+tf.random.set_seed(35)
 
 # Load environment variables
 load_dotenv()
 
-def load_dataset_from_csv(csv_path, image_dir, target_size=(128, 128)):
+def load_dataset_from_csv(csv_path, image_dir, target_size=(128, 128), limit=None):
     """
-    Load dataset from a CSV file.
+    Load dataset from a CSV file with an optional limit on the number of samples.
 
     Args:
         csv_path (str): Path to the CSV file containing image paths and labels.
         image_dir (str): Directory where images are stored.
         target_size (tuple): Target size for resizing images (width, height).
+        limit (int, optional): Maximum number of samples to load. Defaults to None.
 
     Returns:
         X (ndarray): Array of image data.
@@ -44,7 +45,9 @@ def load_dataset_from_csv(csv_path, image_dir, target_size=(128, 128)):
     
     X, y = [], []
 
-    for _, row in data.iterrows():
+    for idx, row in data.iterrows():
+        if limit is not None and idx >= limit:
+            break
         img_path = os.path.join(image_dir, row['filename'])
         label = row['class']
         try:
@@ -82,9 +85,12 @@ if __name__ == "__main__":
     csv_path = os.path.join(script_dir, "valid/_annotations.csv")  # Path to the CSV file
     image_dir = os.path.join(script_dir, "valid")  # Path to the Dataset directory
 
-    # Load dataset
-    print("Loading dataset...")
-    X, y = load_dataset_from_csv(csv_path, image_dir)
+    # Set the limit for dataset size
+    data_limit = 2000  # Use this variable to limit the number of samples
+
+    # Load dataset with a limit
+    print(f"Loading dataset with a limit of {data_limit} samples...")
+    X, y = load_dataset_from_csv(csv_path, image_dir, limit=data_limit)
     print(f"Dataset loaded: {len(X)} images, {len(y)} labels.")
 
     # Encode labels to integers
@@ -115,7 +121,7 @@ if __name__ == "__main__":
 
     # Train the model
     print("Training the model...")
-    keras_model.fit(X_train, y_train_categorical, epochs=5, batch_size=32, validation_split=0.2)
+    keras_model.fit(X_train, y_train_categorical, epochs=10, batch_size=32, validation_split=0.1)
 
     # Plot confusion matrix
     print("Generating confusion matrix...")

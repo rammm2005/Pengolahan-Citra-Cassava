@@ -11,9 +11,9 @@ from tensorflow.keras.preprocessing.image import load_img, img_to_array
 import random
 
 # Set random seeds for reproducibility
-np.random.seed(42)
-random.seed(42)
-tf.random.set_seed(42)
+np.random.seed(35)
+random.seed(35)
+tf.random.set_seed(35)
 
 # Load environment variables
 load_dotenv()

@@ -1,7 +1,6 @@
 import os
 import cv2
 import json
-import time
 import numpy as np
 from dotenv import load_dotenv
 from roboflow import Roboflow
@@ -83,13 +82,14 @@ def resize_image(img, max_width=900):
         return cv2.resize(img, new_dim)
     return img
 
-def detect_disease(image_path, model):
+def detect_disease(image_path, model, output_folder):
     """
     Detects diseases in the provided image using the model and saves the annotated image.
 
     Args:
         image_path (str): Path to the input image.
         model: The loaded Roboflow model.
+        output_folder (str): Folder to save the output images.
     """
     if not os.path.isfile(image_path):
         print(f"Error: Image file '{image_path}' not found.")
@@ -111,9 +111,8 @@ def detect_disease(image_path, model):
         img = draw_bounding_boxes(img, predictions)
         img = resize_image(img)
 
-        output_folder = "public"
         os.makedirs(output_folder, exist_ok=True)
-        output_path = os.path.join(output_folder, "output_image.jpg")
+        output_path = os.path.join(output_folder, os.path.basename(image_path))
         cv2.imwrite(output_path, img)
         print(f"Detection saved as '{output_path}'")
 
@@ -121,9 +120,33 @@ def detect_disease(image_path, model):
         plt.axis("off")
         plt.show()
     else:
-        print("No predictions were found for this image.")
+        print(f"No predictions were found for image '{image_path}'.")
+
+def detect_disease_in_folder(folder_path, model, output_folder, limit=100):
+    """
+    Detects diseases in images within a folder, up to a specified limit.
+
+    Args:
+        folder_path (str): Path to the folder containing images.
+        model: The loaded Roboflow model.
+        output_folder (str): Folder to save the output images.
+        limit (int): Maximum number of images to process.
+    """
+    if not os.path.isdir(folder_path):
+        print(f"Error: Folder '{folder_path}' not found.")
+        return
+
+    image_files = [f for f in os.listdir(folder_path) if f.lower().endswith(('png', 'jpg', 'jpeg'))]
+    image_files = image_files[:limit]
+
+    for i, image_file in enumerate(image_files, start=1):
+        print(f"Processing image {i}/{len(image_files)}: {image_file}")
+        image_path = os.path.join(folder_path, image_file)
+        detect_disease(image_path, model, output_folder)
 
 if __name__ == "__main__":
     model = initialize_model()
     if model:
-        detect_disease("valid/10606813_jpg.rf.9099a6130c06676afc76053fde95f5e6.jpg", model)
+        input_folder = "valid"
+        output_folder = "public/output"
+        detect_disease_in_folder(input_folder, model, output_folder, limit=10)
